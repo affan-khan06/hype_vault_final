@@ -1,0 +1,30 @@
+import os
+from datetime import timedelta
+from dotenv import load_dotenv
+
+basedir = os.path.abspath(os.path.dirname(__file__))
+load_dotenv(os.path.join(basedir, '.env'))
+
+class Config:
+    SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-secret-key-change-in-production'
+    SQLALCHEMY_DATABASE_URI = (
+        os.environ.get('SQLALCHEMY_DATABASE_URI')
+        or os.environ.get('DATABASE_URL')
+        or 'mysql+pymysql://root:password@localhost/hype_vault'
+    )
+    SQLALCHEMY_TRACK_MODIFICATIONS = False
+    JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY') or 'jwt-secret-key-change-in-production'
+    JWT_ACCESS_TOKEN_EXPIRES = timedelta(days=7)  # Extended for development/demo persistence
+    JWT_REFRESH_TOKEN_EXPIRES = timedelta(days=90)  # Long refresh token for extended sessions
+
+class DevelopmentConfig(Config):
+    DEBUG = True
+
+class ProductionConfig(Config):
+    DEBUG = False
+
+config = {
+    'development': DevelopmentConfig,
+    'production': ProductionConfig,
+    'default': DevelopmentConfig
+}
