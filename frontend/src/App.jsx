@@ -142,7 +142,8 @@ function getSneakerImage(sneaker) {
   const source = sneaker.image_path || sneaker.image || sneaker.imageUrl
   if (source && /^https?:\/\//i.test(source)) return source
   if (source && source.startsWith('/')) return source
-  if (source) return `http://localhost:5000/${source.replace(/^\/+/, '')}`
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+  if (source) return `${API_URL}/${source.replace(/^\/+/, '')}`
 
   // 3. Fallback to placeholders based on ID
   const seed = String(sneaker.id || sneaker.name || '').length
