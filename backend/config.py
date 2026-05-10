@@ -22,6 +22,16 @@ class Config:
         print(f"✅ Database URL loaded (starts with: {db_url[:15]}...)")
     
     SQLALCHEMY_DATABASE_URI = db_url or 'mysql+pymysql://root:password@localhost/hype_vault'
+    
+    # Aiven-specific SSL handling
+    SQLALCHEMY_ENGINE_OPTIONS = {}
+    if db_url and "aivencloud.com" in db_url:
+        SQLALCHEMY_ENGINE_OPTIONS = {
+            "connect_args": {
+                "ssl": {"fake_user": "true"}  # This enables SSL for PyMySQL without needing a CA file
+            }
+        }
+
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY') or 'jwt-secret-key-change-in-production'
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(days=7)  # Extended for development/demo persistence
