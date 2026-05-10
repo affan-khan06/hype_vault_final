@@ -8,6 +8,11 @@ load_dotenv(os.path.join(basedir, '.env'))
 class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-secret-key-change-in-production'
     db_url = os.environ.get('SQLALCHEMY_DATABASE_URI') or os.environ.get('DATABASE_URL')
+    
+    # Strip accidental quotes if they exist
+    if db_url:
+        db_url = db_url.strip('"').strip("'")
+        
     if db_url and db_url.startswith("mysql://"):
         db_url = db_url.replace("mysql://", "mysql+pymysql://", 1)
     
