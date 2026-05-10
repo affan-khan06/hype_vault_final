@@ -43,8 +43,8 @@ CREATE TABLE sneakers (
   colorway VARCHAR(120) NOT NULL,
   release_year YEAR NOT NULL,
   rarity VARCHAR(80) NOT NULL,
-  category ENUM('running','basketball','lifestyle','luxury','skate','retro','high-fashion') NOT NULL DEFAULT 'lifestyle',
-  condition ENUM('deadstock','brand_new','near_mint','used') NOT NULL DEFAULT 'deadstock',
+  `category` ENUM('running','basketball','lifestyle','luxury','skate','retro','high-fashion') NOT NULL DEFAULT 'lifestyle',
+  `condition` ENUM('deadstock','brand_new','near_mint','used') NOT NULL DEFAULT 'deadstock',
   msrp_inr INT UNSIGNED DEFAULT NULL,
   current_price_inr INT UNSIGNED NOT NULL,
   market_value_inr INT UNSIGNED DEFAULT NULL,
@@ -195,7 +195,7 @@ CREATE TABLE price_history (
 SET FOREIGN_KEY_CHECKS = 1;
 
 -- Sample sneaker inventory seed: 40 premium resale pairs
-INSERT INTO sneakers (sku, name, brand, model, colorway, release_year, rarity, category, condition, msrp_inr, current_price_inr, market_value_inr, description)
+INSERT INTO sneakers (sku, name, brand, model, colorway, release_year, rarity, `category`, `condition`, msrp_inr, current_price_inr, market_value_inr, description)
 VALUES
 ('HV-001','Air Jordan 1 High OG Lost & Found','Nike','Air Jordan 1 High OG','Chicago/Black','2022','Vault Rare','basketball','deadstock',22000,54999,62500,'A collector-grade Air Jordan 1 with lived-in heritage and premium resale demand.'),
 ('HV-002','Jordan 4 Military Black','Nike','Air Jordan 4','Military Black','2022','Most Traded','basketball','deadstock',21000,46999,49500,'High-heat Jordan 4 colorway with verified condition and Indian market momentum.'),

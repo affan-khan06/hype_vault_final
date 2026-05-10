@@ -26,7 +26,7 @@ def create_app():
     app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 
     # Initialize extensions
-    CORS(app, supports_credentials=True)
+    CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=True)
     JWTManager(app)
     db.init_app(app)
 
