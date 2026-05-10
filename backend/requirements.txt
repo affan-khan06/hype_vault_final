@@ -10,3 +10,4 @@ reportlab
 pillow
 qrcode
 gunicorn
+cryptography
