@@ -11,6 +11,11 @@ class Config:
     if db_url and db_url.startswith("mysql://"):
         db_url = db_url.replace("mysql://", "mysql+pymysql://", 1)
     
+    if not db_url:
+        print("⚠️ WARNING: DATABASE_URL not found in environment. Falling back to localhost.")
+    else:
+        print(f"✅ Database URL loaded (starts with: {db_url[:15]}...)")
+    
     SQLALCHEMY_DATABASE_URI = db_url or 'mysql+pymysql://root:password@localhost/hype_vault'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY') or 'jwt-secret-key-change-in-production'
