@@ -29,9 +29,9 @@ def seed(uri):
                     db.session.execute(text(statement))
             
             db.session.commit()
-            print("✅ Successfully seeded the remote database with 40 sneakers!")
+            print("[OK] Successfully seeded the database with 40 sneakers!")
         except Exception as e:
-            print(f"❌ Error seeding database: {e}")
+            print(f"[ERROR] Error seeding database: {e}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

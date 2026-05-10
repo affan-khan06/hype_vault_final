@@ -16,9 +16,9 @@ class Config:
             db_url = db_url.replace("mysql://", "mysql+pymysql://", 1)
         
         # Log success (masked)
-        print(f"✅ Database URI configured for {db_url.split('@')[-1]}")
+        print(f"[OK] Database URI configured for {db_url.split('@')[-1]}")
     else:
-        print("⚠️ WARNING: No DATABASE_URL found!")
+        print("[WARNING] No DATABASE_URL found!")
 
     SQLALCHEMY_DATABASE_URI = db_url or 'mysql+pymysql://root:password@localhost/hype_vault'
     
