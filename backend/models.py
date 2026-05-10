@@ -2,13 +2,14 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
+from sqlalchemy.dialects.mysql import BIGINT
 
 db = SQLAlchemy()
 
 class User(UserMixin, db.Model):
     __tablename__ = 'users'
 
-    id = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
+    id = db.Column(BIGINT(unsigned=True), primary_key=True, autoincrement=True)
     full_name = db.Column(db.String(120), nullable=False)
     email = db.Column(db.String(180), nullable=False, unique=True)
     password_hash = db.Column(db.String(255), nullable=False)
@@ -48,10 +49,47 @@ class User(UserMixin, db.Model):
             'status': self.status
         }
 
+class Session(db.Model):
+    __tablename__ = 'sessions'
+
+    id = db.Column(BIGINT(unsigned=True), primary_key=True, autoincrement=True)
+    user_id = db.Column(BIGINT(unsigned=True), db.ForeignKey('users.id'), nullable=False)
+    session_token = db.Column(db.String(128), nullable=False, unique=True)
+    refresh_token = db.Column(db.String(128), nullable=False, unique=True)
+    access_token = db.Column(db.String(512), nullable=False)
+    expires_at = db.Column(db.DateTime, nullable=False)
+    refresh_expires_at = db.Column(db.DateTime, nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    last_used_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    # Relationships
+    user = db.relationship('User', backref='sessions', lazy=True)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'session_token': self.session_token,
+            'expires_at': self.expires_at.isoformat(),
+            'refresh_expires_at': self.refresh_expires_at.isoformat(),
+            'created_at': self.created_at.isoformat(),
+            'last_used_at': self.last_used_at.isoformat()
+        }
+
+    def is_expired(self):
+        return datetime.utcnow() > self.expires_at
+
+    def is_refresh_expired(self):
+        return datetime.utcnow() > self.refresh_expires_at
+
+    def update_last_used(self):
+        self.last_used_at = datetime.utcnow()
+        db.session.commit()
+
 class Sneaker(db.Model):
     __tablename__ = 'sneakers'
 
-    id = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
+    id = db.Column(BIGINT(unsigned=True), primary_key=True, autoincrement=True)
     sku = db.Column(db.String(40), nullable=False, unique=True)
     name = db.Column(db.String(160), nullable=False)
     brand = db.Column(db.String(80), nullable=False)
@@ -100,8 +138,8 @@ class Sneaker(db.Model):
 class SneakerSize(db.Model):
     __tablename__ = 'sneaker_sizes'
 
-    id = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
-    sneaker_id = db.Column(db.BigInteger, db.ForeignKey('sneakers.id'), nullable=False)
+    id = db.Column(BIGINT(unsigned=True), primary_key=True, autoincrement=True)
+    sneaker_id = db.Column(BIGINT(unsigned=True), db.ForeignKey('sneakers.id'), nullable=False)
     size_label = db.Column(db.String(24), nullable=False)
     us_size = db.Column(db.Numeric(4, 1), nullable=False)
     uk_size = db.Column(db.Numeric(4, 1))
@@ -131,9 +169,9 @@ class SneakerSize(db.Model):
 class Inventory(db.Model):
     __tablename__ = 'inventory'
 
-    id = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
-    sneaker_id = db.Column(db.BigInteger, db.ForeignKey('sneakers.id'), nullable=False)
-    size_id = db.Column(db.BigInteger, db.ForeignKey('sneaker_sizes.id'), nullable=False)
+    id = db.Column(BIGINT(unsigned=True), primary_key=True, autoincrement=True)
+    sneaker_id = db.Column(BIGINT(unsigned=True), db.ForeignKey('sneakers.id'), nullable=False)
+    size_id = db.Column(BIGINT(unsigned=True), db.ForeignKey('sneaker_sizes.id'), nullable=False)
     warehouse_location = db.Column(db.String(120), nullable=False, default='Mumbai Vault')
     stock_quantity = db.Column(db.SmallInteger, nullable=False, default=0)
     lot_status = db.Column(db.Enum('available', 'reserved', 'sold', 'inspection'), nullable=False, default='available')
@@ -182,10 +220,10 @@ class Cart(db.Model):
 class CartItem(db.Model):
     __tablename__ = 'cart_items'
 
-    id = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
-    cart_id = db.Column(db.BigInteger, db.ForeignKey('carts.id'), nullable=False)
-    sneaker_id = db.Column(db.BigInteger, db.ForeignKey('sneakers.id'), nullable=False)
-    size_id = db.Column(db.BigInteger, db.ForeignKey('sneaker_sizes.id'), nullable=False)
+    id = db.Column(BIGINT(unsigned=True), primary_key=True, autoincrement=True)
+    cart_id = db.Column(BIGINT(unsigned=True), db.ForeignKey('carts.id'), nullable=False)
+    sneaker_id = db.Column(BIGINT(unsigned=True), db.ForeignKey('sneakers.id'), nullable=False)
+    size_id = db.Column(BIGINT(unsigned=True), db.ForeignKey('sneaker_sizes.id'), nullable=False)
     quantity = db.Column(db.SmallInteger, nullable=False, default=1)
     price_inr = db.Column(db.Integer, nullable=False)
     added_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
@@ -204,9 +242,9 @@ class CartItem(db.Model):
 class Order(db.Model):
     __tablename__ = 'orders'
 
-    id = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
-    user_id = db.Column(db.BigInteger, db.ForeignKey('users.id'), nullable=False)
-    cart_id = db.Column(db.BigInteger, db.ForeignKey('carts.id'))
+    id = db.Column(BIGINT(unsigned=True), primary_key=True, autoincrement=True)
+    user_id = db.Column(BIGINT(unsigned=True), db.ForeignKey('users.id'), nullable=False)
+    cart_id = db.Column(BIGINT(unsigned=True), db.ForeignKey('carts.id'))
     order_number = db.Column(db.String(40), nullable=False, unique=True)
     status = db.Column(db.Enum('pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled', 'returned'), nullable=False, default='pending')
     payment_method = db.Column(db.Enum('card', 'upi', 'netbanking', 'wallet', 'cash_on_delivery'), nullable=False, default='card')
@@ -247,10 +285,10 @@ class Order(db.Model):
 class OrderItem(db.Model):
     __tablename__ = 'order_items'
 
-    id = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
-    order_id = db.Column(db.BigInteger, db.ForeignKey('orders.id'), nullable=False)
-    sneaker_id = db.Column(db.BigInteger, db.ForeignKey('sneakers.id'), nullable=False)
-    size_id = db.Column(db.BigInteger, db.ForeignKey('sneaker_sizes.id'), nullable=False)
+    id = db.Column(BIGINT(unsigned=True), primary_key=True, autoincrement=True)
+    order_id = db.Column(BIGINT(unsigned=True), db.ForeignKey('orders.id'), nullable=False)
+    sneaker_id = db.Column(BIGINT(unsigned=True), db.ForeignKey('sneakers.id'), nullable=False)
+    size_id = db.Column(BIGINT(unsigned=True), db.ForeignKey('sneaker_sizes.id'), nullable=False)
     quantity = db.Column(db.SmallInteger, nullable=False, default=1)
     unit_price_inr = db.Column(db.Integer, nullable=False)
     total_price_inr = db.Column(db.Integer, nullable=False)
@@ -271,9 +309,9 @@ class OrderItem(db.Model):
 class Wishlist(db.Model):
     __tablename__ = 'wishlist'
 
-    id = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
-    user_id = db.Column(db.BigInteger, db.ForeignKey('users.id'), nullable=False)
-    sneaker_id = db.Column(db.BigInteger, db.ForeignKey('sneakers.id'), nullable=False)
+    id = db.Column(BIGINT(unsigned=True), primary_key=True, autoincrement=True)
+    user_id = db.Column(BIGINT(unsigned=True), db.ForeignKey('users.id'), nullable=False)
+    sneaker_id = db.Column(BIGINT(unsigned=True), db.ForeignKey('sneakers.id'), nullable=False)
     priority = db.Column(db.SmallInteger, nullable=False, default=1)
     added_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
 
@@ -289,8 +327,8 @@ class Wishlist(db.Model):
 class PriceHistory(db.Model):
     __tablename__ = 'price_history'
 
-    id = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
-    sneaker_id = db.Column(db.BigInteger, db.ForeignKey('sneakers.id'), nullable=False)
+    id = db.Column(BIGINT(unsigned=True), primary_key=True, autoincrement=True)
+    sneaker_id = db.Column(BIGINT(unsigned=True), db.ForeignKey('sneakers.id'), nullable=False)
     recorded_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     price_inr = db.Column(db.Integer, nullable=False)
     source = db.Column(db.String(140), default='market_feed')

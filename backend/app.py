@@ -10,13 +10,23 @@ from api.checkout import checkout_bp
 from api.wishlist import wishlist_bp
 from api.orders import orders_bp
 from api.inventory import inventory_bp
+from api.receipts import receipts_bp
+from datetime import timedelta
 
 def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
 
+    # Session configuration
+    app.config['SESSION_TYPE'] = 'filesystem'
+    app.config['SESSION_PERMANENT'] = True
+    app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=90)
+    app.config['SESSION_COOKIE_SECURE'] = False  # Set to True in production with HTTPS
+    app.config['SESSION_COOKIE_HTTPONLY'] = True
+    app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+
     # Initialize extensions
-    CORS(app)
+    CORS(app, supports_credentials=True)
     JWTManager(app)
     db.init_app(app)
 
@@ -28,6 +38,7 @@ def create_app():
     app.register_blueprint(wishlist_bp, url_prefix='/api/wishlist')
     app.register_blueprint(orders_bp, url_prefix='/api/orders')
     app.register_blueprint(inventory_bp, url_prefix='/api/inventory')
+    app.register_blueprint(receipts_bp, url_prefix='/api/receipts')
 
     # Health check endpoint
     @app.route('/health')

@@ -1,10 +1,51 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, session as flask_session
 from flask_jwt_extended import create_access_token, create_refresh_token, jwt_required, get_jwt_identity
 from werkzeug.security import generate_password_hash
-from models import db, User
-from datetime import datetime
+from models import db, User, Session
+from datetime import datetime, timedelta
+import secrets
+import string
 
 auth_bp = Blueprint('auth', __name__)
+
+auth_bp = Blueprint('auth', __name__)
+
+def generate_token(length=32):
+    """Generate a secure random token"""
+    alphabet = string.ascii_letters + string.digits
+    return ''.join(secrets.choice(alphabet) for _ in range(length))
+
+def create_user_session(user):
+    """Create a new session for the user"""
+    # Clean up expired sessions for this user
+    expired_sessions = Session.query.filter(
+        Session.user_id == user.id,
+        Session.refresh_expires_at < datetime.utcnow()
+    ).all()
+    for exp_session in expired_sessions:
+        db.session.delete(exp_session)
+
+    # Create new session
+    session_token = generate_token()
+    refresh_token = generate_token()
+    access_token = create_access_token(identity=user.id)
+
+    expires_at = datetime.utcnow() + timedelta(days=7)  # 7 days
+    refresh_expires_at = datetime.utcnow() + timedelta(days=90)  # 90 days
+
+    user_session = Session(
+        user_id=user.id,
+        session_token=session_token,
+        refresh_token=refresh_token,
+        access_token=access_token,
+        expires_at=expires_at,
+        refresh_expires_at=refresh_expires_at
+    )
+
+    db.session.add(user_session)
+    db.session.commit()
+
+    return user_session
 
 @auth_bp.route('/register', methods=['POST'])
 def register():
@@ -35,14 +76,18 @@ def register():
     db.session.add(user)
     db.session.commit()
 
-    access_token = create_access_token(identity=user.id)
-    refresh_token = create_refresh_token(identity=user.id)
+    # Create session
+    user_session = create_user_session(user)
+
+    # Set session cookie (legacy support)
+    flask_session['session_token'] = user_session.session_token
 
     return jsonify({
         'message': 'User registered successfully',
         'user': user.to_dict(),
-        'access_token': access_token,
-        'refresh_token': refresh_token
+        'session_token': user_session.session_token,
+        'access_token': user_session.access_token,
+        'refresh_token': user_session.refresh_token
     }), 201
 
 @auth_bp.route('/login', methods=['POST'])
@@ -64,29 +109,70 @@ def login():
     user.last_login = datetime.utcnow()
     db.session.commit()
 
-    access_token = create_access_token(identity=user.id)
-    refresh_token = create_refresh_token(identity=user.id)
+    # Create session
+    user_session = create_user_session(user)
+
+    # Set session cookie (legacy support)
+    flask_session['session_token'] = user_session.session_token
 
     return jsonify({
         'message': 'Login successful',
         'user': user.to_dict(),
-        'access_token': access_token,
-        'refresh_token': refresh_token
+        'session_token': user_session.session_token,
+        'access_token': user_session.access_token,
+        'refresh_token': user_session.refresh_token
     }), 200
 
 @auth_bp.route('/refresh', methods=['POST'])
-@jwt_required(refresh=True)
 def refresh():
-    current_user_id = get_jwt_identity()
-    access_token = create_access_token(identity=current_user_id)
-    return jsonify({'access_token': access_token}), 200
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return jsonify({'error': 'No session found'}), 401
+    
+    refresh_token = auth_header.split(' ')[1]
+
+    user_session = Session.query.filter_by(refresh_token=refresh_token).first()
+    if not user_session:
+        return jsonify({'error': 'Invalid session'}), 401
+
+    if user_session.is_refresh_expired():
+        db.session.delete(user_session)
+        db.session.commit()
+        return jsonify({'error': 'Session expired'}), 401
+
+    # Update session with new tokens
+    user_session.access_token = create_access_token(identity=user_session.user_id)
+    user_session.expires_at = datetime.utcnow() + timedelta(days=7)
+    user_session.update_last_used()
+    db.session.commit()
+
+    return jsonify({
+        'access_token': user_session.access_token,
+        'session_token': user_session.session_token
+    }), 200
 
 @auth_bp.route('/profile', methods=['GET'])
 @jwt_required()
 def get_profile():
     current_user_id = get_jwt_identity()
-    user = User.query.get(current_user_id)
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return jsonify({'error': 'No session found'}), 401
+        
+    access_token = auth_header.split(' ')[1]
 
+    user_session = Session.query.filter_by(access_token=access_token).first()
+    if not user_session:
+        return jsonify({'error': 'Invalid session'}), 401
+
+    if user_session.is_expired():
+        db.session.delete(user_session)
+        db.session.commit()
+        return jsonify({'error': 'Session expired'}), 401
+
+    user_session.update_last_used()
+
+    user = User.query.get(current_user_id)
     if not user:
         return jsonify({'error': 'User not found'}), 404
 
@@ -96,8 +182,24 @@ def get_profile():
 @jwt_required()
 def update_profile():
     current_user_id = get_jwt_identity()
-    user = User.query.get(current_user_id)
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return jsonify({'error': 'No session found'}), 401
+        
+    access_token = auth_header.split(' ')[1]
 
+    user_session = Session.query.filter_by(access_token=access_token).first()
+    if not user_session:
+        return jsonify({'error': 'Invalid session'}), 401
+
+    if user_session.is_expired():
+        db.session.delete(user_session)
+        db.session.commit()
+        return jsonify({'error': 'Session expired'}), 401
+
+    user_session.update_last_used()
+
+    user = User.query.get(current_user_id)
     if not user:
         return jsonify({'error': 'User not found'}), 404
 
@@ -130,9 +232,39 @@ def update_profile():
 @jwt_required()
 def get_current_user():
     current_user_id = get_jwt_identity()
-    user = User.query.get(current_user_id)
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return jsonify({'error': 'No session found'}), 401
+        
+    access_token = auth_header.split(' ')[1]
 
+    user_session = Session.query.filter_by(access_token=access_token).first()
+    if not user_session:
+        return jsonify({'error': 'Invalid session'}), 401
+
+    if user_session.is_expired():
+        db.session.delete(user_session)
+        db.session.commit()
+        return jsonify({'error': 'Session expired'}), 401
+
+    user_session.update_last_used()
+
+    user = User.query.get(current_user_id)
     if not user:
         return jsonify({'error': 'User not found'}), 404
 
     return jsonify({'user': user.to_dict()}), 200
+
+@auth_bp.route('/logout', methods=['POST'])
+@jwt_required()
+def logout():
+    auth_header = request.headers.get('Authorization')
+    if auth_header and auth_header.startswith('Bearer '):
+        access_token = auth_header.split(' ')[1]
+        user_session = Session.query.filter_by(access_token=access_token).first()
+        if user_session:
+            db.session.delete(user_session)
+            db.session.commit()
+
+    flask_session.pop('session_token', None)
+    return jsonify({'message': 'Logged out successfully'}), 200

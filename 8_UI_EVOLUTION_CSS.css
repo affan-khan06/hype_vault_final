@@ -1,0 +1,467 @@
+/**
+ * HYPE VAULT UI EVOLUTION GUIDE
+ * Minimalist luxury polish without architectural changes
+ * 
+ * STRATEGY:
+ * 1. Reduce heavy black visuals → Use layered grayscale + accents
+ * 2. Improve spacing → Breathing room, card-based layouts
+ * 3. Subtle gradients → Ambient light effects for depth
+ * 4. Typography hierarchy → Clear visual flow
+ * 5. Preserve animations → Smooth, purposeful motion
+ * 
+ * IMPLEMENTATION:
+ * Add these utility classes to App.css or Tailwind config
+ * Update existing components to use new class patterns
+ * NO component rewrites - just visual refinement
+ */
+
+/* ============================================
+   1. COLOR PALETTE REFINEMENT
+   Keep the dark theme but make it sophisticated
+   ============================================ */
+
+:root {
+  /* Background colors - layered depth */
+  --bg-primary: #0a0a0a;      /* Pure black for hero, primary bg */
+  --bg-secondary: #131313;    /* Subtle layer 1 */
+  --bg-tertiary: #1a1a1a;     /* Subtle layer 2 */
+  --bg-surface: #242424;      /* Card/surface backgrounds */
+  
+  /* Accent colors - minimal, purposeful */
+  --accent-primary: #f5f5f5;  /* Off-white */
+  --accent-gold: #d4af37;     /* Luxury gold - highlights only */
+  --accent-cyan: #00d9ff;     /* Futuristic cyan - CTAs */
+  
+  /* Borders & dividers - softer */
+  --border-subtle: rgba(255, 255, 255, 0.05);
+  --border-light: rgba(255, 255, 255, 0.1);
+  --border-medium: rgba(255, 255, 255, 0.2);
+  
+  /* Text colors */
+  --text-primary: #f5f5f5;
+  --text-secondary: #d0d0d0;
+  --text-tertiary: #a0a0a0;
+  --text-muted: #808080;
+}
+
+/* ============================================
+   2. BACKDROP & GLASS MORPHISM
+   Modern layering effect without overdoing it
+   ============================================ */
+
+.glass-primary {
+  background: rgba(20, 20, 20, 0.4);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.glass-secondary {
+  background: rgba(30, 30, 30, 0.6);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.glass-elevated {
+  background: rgba(36, 36, 36, 0.8);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* ============================================
+   3. AMBIENT LIGHTING EFFECTS
+   Subtle gradients for visual hierarchy
+   ============================================ */
+
+.ambient-glow-subtle {
+  position: relative;
+}
+
+.ambient-glow-subtle::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: -20%;
+  width: 400px;
+  height: 400px;
+  background: radial-gradient(circle, rgba(0, 217, 255, 0.03) 0%, transparent 70%);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.ambient-glow-accent {
+  position: relative;
+}
+
+.ambient-glow-accent::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -10%;
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, rgba(212, 175, 55, 0.02) 0%, transparent 70%);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+/* ============================================
+   4. SPACING & LAYOUT IMPROVEMENTS
+   Better breathing room, consistent rhythm
+   ============================================ */
+
+.container-premium {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem;
+  @media (max-width: 768px) {
+    padding: 1.5rem 1rem;
+  }
+}
+
+.card-modern {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+  padding: 1.5rem;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.card-modern:hover {
+  border-color: var(--border-medium);
+  background: rgba(36, 36, 36, 0.9);
+}
+
+.card-elevated {
+  background: rgba(36, 36, 36, 0.7);
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+  padding: 2rem;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  @media (max-width: 768px) {
+    padding: 1.5rem;
+  }
+}
+
+.section-spacing {
+  margin-top: 4rem;
+  margin-bottom: 4rem;
+  @media (max-width: 768px) {
+    margin-top: 2.5rem;
+    margin-bottom: 2.5rem;
+  }
+}
+
+/* ============================================
+   5. TYPOGRAPHY HIERARCHY
+   Clear visual flow with refined scaling
+   ============================================ */
+
+.heading-hero {
+  font-size: 3.5rem;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  @media (max-width: 768px) {
+    font-size: 2rem;
+  }
+}
+
+.heading-section {
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+  margin-bottom: 1rem;
+  @media (max-width: 768px) {
+    font-size: 1.5rem;
+  }
+}
+
+.heading-subsection {
+  font-size: 1.25rem;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--text-secondary);
+  margin-bottom: 0.75rem;
+}
+
+.text-body {
+  font-size: 1rem;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+.text-caption {
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--text-tertiary);
+}
+
+/* ============================================
+   6. BUTTON REFINEMENT
+   Minimalist buttons with clear intent
+   ============================================ */
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--accent-cyan) 0%, #00b8d4 100%);
+  color: #000;
+  font-weight: 600;
+  padding: 0.875rem 1.75rem;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 15px rgba(0, 217, 255, 0.2);
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 217, 255, 0.3);
+}
+
+.btn-secondary {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+  font-weight: 500;
+  padding: 0.75rem 1.5rem;
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: var(--border-medium);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--text-secondary);
+  font-weight: 500;
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-ghost:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-primary);
+}
+
+/* ============================================
+   7. INPUT & FORM ELEMENTS
+   Subtle focus states, clear feedback
+   ============================================ */
+
+.input-modern {
+  background: rgba(30, 30, 30, 0.5);
+  border: 1px solid var(--border-light);
+  color: var(--text-primary);
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  font-size: 1rem;
+}
+
+.input-modern:focus {
+  outline: none;
+  background: rgba(30, 30, 30, 0.7);
+  border-color: var(--accent-cyan);
+  box-shadow: 0 0 0 3px rgba(0, 217, 255, 0.1);
+}
+
+.input-modern::placeholder {
+  color: var(--text-muted);
+}
+
+/* ============================================
+   8. CARDS & CONTAINERS
+   Product cards, feature boxes with hierarchy
+   ============================================ */
+
+.product-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.product-card:hover {
+  border-color: var(--accent-cyan);
+  box-shadow: 0 12px 40px rgba(0, 217, 255, 0.15);
+  transform: translateY(-4px);
+}
+
+.product-image {
+  width: 100%;
+  height: 280px;
+  background: linear-gradient(135deg, rgba(20, 20, 20, 0.8), rgba(30, 30, 30, 0.8));
+  object-fit: cover;
+  overflow: hidden;
+}
+
+.product-info {
+  padding: 1.25rem;
+}
+
+.product-name {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 0.5rem;
+  line-height: 1.4;
+}
+
+.product-meta {
+  font-size: 0.875rem;
+  color: var(--text-tertiary);
+  margin-bottom: 1rem;
+}
+
+.product-price {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--accent-cyan);
+  letter-spacing: -0.01em;
+}
+
+/* ============================================
+   9. NAVIGATION & HEADERS
+   Minimal, sophisticated header styling
+   ============================================ */
+
+.navbar-modern {
+  background: rgba(10, 10, 10, 0.8);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--border-subtle);
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  padding: 1rem 0;
+}
+
+.nav-item {
+  color: var(--text-secondary);
+  font-weight: 500;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.nav-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-primary);
+}
+
+.nav-item.active {
+  color: var(--accent-cyan);
+  border-bottom: 2px solid var(--accent-cyan);
+}
+
+/* ============================================
+   10. ANIMATION UTILITIES
+   Smooth, purposeful motion (preserved from original)
+   ============================================ */
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out;
+}
+
+.animate-slide-up {
+  animation: slide-up 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+/* ============================================
+   11. RESPONSIVE BEHAVIOR
+   Mobile-first, touch-friendly adjustments
+   ============================================ */
+
+@media (max-width: 768px) {
+  .card-modern {
+    padding: 1rem;
+  }
+  
+  .card-elevated {
+    padding: 1.25rem;
+  }
+  
+  .product-image {
+    height: 220px;
+  }
+  
+  .heading-section {
+    font-size: 1.25rem;
+  }
+  
+  /* Larger touch targets */
+  button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+/* ============================================
+   12. ACCESSIBILITY IMPROVEMENTS
+   Focus states, contrast, readability
+   ============================================ */
+
+:focus-visible {
+  outline: 2px solid var(--accent-cyan);
+  outline-offset: 2px;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: more) {
+  :root {
+    --text-tertiary: #b0b0b0;
+    --border-medium: rgba(255, 255, 255, 0.3);
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
