@@ -22,9 +22,14 @@ class Config:
 
     SQLALCHEMY_DATABASE_URI = db_url or 'mysql+pymysql://root:password@localhost/hype_vault'
     
-    # Simple SSL for Aiven
+    # Robust SSL for Aiven (handles 'REQUIRED' mode without CA file)
     SQLALCHEMY_ENGINE_OPTIONS = {
-        "connect_args": {"ssl": {"fake_user": "true"}} if db_url and "aiven" in db_url else {}
+        "connect_args": {
+            "ssl": {
+                "check_hostname": False,
+                "fake_user": "true"
+            }
+        } if db_url and "aiven" in db_url else {}
     }
 
     SQLALCHEMY_TRACK_MODIFICATIONS = False
