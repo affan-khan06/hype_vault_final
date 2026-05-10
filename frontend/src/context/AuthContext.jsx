@@ -49,7 +49,7 @@ export const AuthProvider = ({ children }) => {
   const [error, setError] = useState(null)
   const [isRefreshingToken, setIsRefreshingToken] = useState(false)
 
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+  const API_URL = import.meta.env.VITE_API_URL || ''
 
   // Persist tokens to localStorage
   const saveTokens = useCallback((accessToken, refreshToken) => {
