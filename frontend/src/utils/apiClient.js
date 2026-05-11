@@ -13,6 +13,25 @@ import axios from 'axios'
 
 const API_URL = import.meta.env.VITE_API_URL || ''
 
+const normalizeToken = (token) => {
+  if (!token || typeof token !== 'string') return null
+  const trimmed = token.trim()
+  if (!trimmed || trimmed === 'null' || trimmed === 'undefined') return null
+  return trimmed
+}
+
+const isJwtError = (status, data) => {
+  if (!data) return status === 401 || status === 422
+  const message = `${data.msg || data.error || ''}`.toLowerCase()
+  return (
+    status === 401 ||
+    status === 422 ||
+    message.includes('authorization') ||
+    message.includes('token') ||
+    message.includes('session')
+  )
+}
+
 // Create axios instance
 const apiClient = axios.create({
   baseURL: API_URL,
@@ -39,8 +58,9 @@ const processQueue = (error, token = null) => {
 // REQUEST INTERCEPTOR: Attach JWT to all requests
 apiClient.interceptors.request.use(
   (config) => {
-    const accessToken = localStorage.getItem('access_token')
+    const accessToken = normalizeToken(localStorage.getItem('access_token'))
     if (accessToken) {
+      config.headers = config.headers || {}
       config.headers.Authorization = `Bearer ${accessToken}`
     }
     return config
@@ -48,20 +68,21 @@ apiClient.interceptors.request.use(
   (error) => Promise.reject(error)
 )
 
-// RESPONSE INTERCEPTOR: Handle 401 and refresh token
+// RESPONSE INTERCEPTOR: Handle 401/422 and refresh token
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
     const originalRequest = error.config
+    const status = error.response?.status
+    const data = error.response?.data
 
-    // Handle 401 (unauthorized) - try to refresh token
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    if (isJwtError(status, data) && originalRequest && !originalRequest._retry) {
       if (isRefreshing) {
-        // Token refresh is already in progress, queue this request
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject })
         })
           .then((token) => {
+            originalRequest.headers = originalRequest.headers || {}
             originalRequest.headers.Authorization = `Bearer ${token}`
             return apiClient(originalRequest)
           })
@@ -71,10 +92,8 @@ apiClient.interceptors.response.use(
       isRefreshing = true
       originalRequest._retry = true
 
-      // Attempt token refresh
-      const refreshToken = localStorage.getItem('refresh_token')
+      const refreshToken = normalizeToken(localStorage.getItem('refresh_token'))
       if (!refreshToken) {
-        // No refresh token, user needs to login again
         localStorage.removeItem('access_token')
         localStorage.removeItem('refresh_token')
         localStorage.removeItem('user_profile')
@@ -91,12 +110,12 @@ apiClient.interceptors.response.use(
           const { access_token: newAccessToken } = response.data
           localStorage.setItem('access_token', newAccessToken)
           apiClient.defaults.headers.common.Authorization = `Bearer ${newAccessToken}`
+          originalRequest.headers = originalRequest.headers || {}
           originalRequest.headers.Authorization = `Bearer ${newAccessToken}`
           processQueue(null, newAccessToken)
           return apiClient(originalRequest)
         })
         .catch((err) => {
-          // Refresh failed, force logout
           localStorage.removeItem('access_token')
           localStorage.removeItem('refresh_token')
           localStorage.removeItem('user_profile')
@@ -106,7 +125,6 @@ apiClient.interceptors.response.use(
         })
     }
 
-    // For other errors, reject immediately
     return Promise.reject(error)
   }
 )

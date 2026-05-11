@@ -756,6 +756,90 @@ function formatInr(value) {
   }).format(value)
 }
 
+function formatOrderDate(value) {
+  if (!value) return 'Unknown date'
+  const date = new Date(value)
+  return new Intl.DateTimeFormat('en-IN', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  }).format(date)
+}
+
+function getOrdersStorageKey(user) {
+  const identifier = user?.email || user?.id || 'guest'
+  return `hype_vault_orders_${String(identifier).replace(/\s+/g, '_').toLowerCase()}`
+}
+
+function loadLocalOrders(user) {
+  if (!user) return []
+  const key = getOrdersStorageKey(user)
+  const raw = localStorage.getItem(key)
+  if (!raw) return []
+  try {
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed) ? parsed : []
+  } catch (error) {
+    console.warn('Failed to parse local orders:', error)
+    return []
+  }
+}
+
+function saveLocalOrders(user, orders) {
+  if (!user || !Array.isArray(orders)) return
+  const key = getOrdersStorageKey(user)
+  localStorage.setItem(key, JSON.stringify(orders))
+}
+
+function addLocalOrder(user, order) {
+  if (!user || !order || !order.order_number) return
+  const current = loadLocalOrders(user)
+  const nextOrders = [order, ...current.filter((item) => item.order_number !== order.order_number)]
+  saveLocalOrders(user, nextOrders)
+}
+
+function mergeOrders(serverOrders, localOrders) {
+  const combined = [...(serverOrders || []), ...(localOrders || [])]
+  const seen = new Set()
+  return combined
+    .filter((order) => {
+      if (!order?.order_number) return false
+      if (seen.has(order.order_number)) return false
+      seen.add(order.order_number)
+      return true
+    })
+    .sort((a, b) => new Date(b.placed_at || b.created_at || 0) - new Date(a.placed_at || a.created_at || 0))
+}
+
+function mapPaymentMethod(method) {
+  return {
+    card: 'Card',
+    upi: 'UPI',
+    netbanking: 'Net Banking',
+    wallet: 'Wallet',
+    cash_on_delivery: 'Cash on Delivery',
+  }[method] || (method || 'Payment')
+}
+
+function getOrderTimelineSteps(order) {
+  const status = order?.status || 'pending'
+  const paymentConfirmed = ['authorized', 'captured'].includes(order?.payment_status)
+  const isPacked = ['processing', 'shipped', 'delivered'].includes(status)
+  const isShipped = ['shipped', 'delivered'].includes(status)
+  const isOutForDelivery = status === 'shipped' || status === 'delivered'
+  const isDelivered = status === 'delivered'
+
+  return [
+    { label: 'Order Placed', status: 'complete' },
+    { label: 'Payment Confirmed', status: paymentConfirmed ? 'complete' : 'pending' },
+    { label: 'Authentication Check', status: paymentConfirmed ? 'active' : 'pending' },
+    { label: 'Packed', status: isPacked ? 'active' : 'pending' },
+    { label: 'Shipped', status: isShipped ? 'active' : 'pending' },
+    { label: 'Out for Delivery', status: isOutForDelivery ? 'active' : 'pending' },
+    { label: 'Delivered', status: isDelivered ? 'complete' : 'pending' },
+  ]
+}
+
 function buildPriceHistory(price) {
   const base = parseInrPrice(price)
   const multipliers = [0.86, 0.9, 0.88, 0.94, 0.98, 0.96, 1.04, 1.01, 1.08, 1.13, 1.1, 1.18]
@@ -1329,6 +1413,172 @@ function DashboardPage({
             </div>
           </aside>
         </div>
+      </motion.div>
+    </section>
+  )
+}
+
+function OrdersPage({ orders, loading, error }) {
+  const latest = orders?.[0]
+  const previousOrders = orders?.slice(1) || []
+
+  return (
+    <section id="orders" className="relative px-5 pb-24 pt-32 sm:px-6 sm:pt-40 lg:px-10">
+      <motion.div
+        initial={{ opacity: 0, y: 28 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.72, ease: [0.22, 1, 0.36, 1] }}
+        className="mx-auto max-w-7xl"
+      >
+        <div className="mb-10">
+          <p className="text-xs font-bold uppercase tracking-[0.46em] text-zinc-500">My Orders</p>
+          <h1 className="mt-5 text-5xl font-semibold tracking-tight text-zinc-50 sm:text-6xl">
+            Recent order history
+          </h1>
+          <p className="mt-3 max-w-2xl text-sm leading-7 text-zinc-400">
+            View your latest authenticated purchase, delivery timeline, and premium vault order history.
+          </p>
+        </div>
+
+        {loading && !orders.length ? (
+          <div className="rounded-[2rem] border border-white/10 bg-black/50 p-10 text-center text-zinc-400">
+            Loading your authenticated order history...
+          </div>
+        ) : !orders.length ? (
+          <div className="rounded-[2rem] border border-white/10 bg-black/50 p-10 text-center text-zinc-400">
+            No orders found yet. Your full order history will appear here once you place a purchase.
+          </div>
+        ) : (
+          <>
+            {loading ? (
+              <div className="mb-6 rounded-[2rem] border border-white/10 bg-black/50 p-6 text-center text-zinc-300">
+                Updating order history... Showing saved orders while we connect to the server.
+              </div>
+            ) : null}
+            {error ? (
+              <div className="mb-6 rounded-[2rem] border border-red-500/20 bg-black/50 p-6 text-center text-red-300">
+                {error}
+              </div>
+            ) : null}
+            <div className="grid gap-8 xl:grid-cols-[1.2fr_0.85fr]">
+            <div className="space-y-6">
+              <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-8 shadow-[0_30px_120px_rgba(0,0,0,0.36)] backdrop-blur-2xl">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-[0.24em] text-zinc-500">Most recent order</p>
+                    <h2 className="mt-3 text-3xl font-semibold text-zinc-50">
+                      {latest?.items?.[0]?.sneaker?.name || 'Vault order'}
+                    </h2>
+                  </div>
+                  <span className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs uppercase tracking-[0.24em] text-zinc-300">
+                    {latest?.status || 'pending'}
+                  </span>
+                </div>
+
+                <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                  <div className="rounded-[1.5rem] border border-white/10 bg-black/45 p-4">
+                    <p className="text-xs uppercase tracking-[0.24em] text-zinc-500">Order number</p>
+                    <p className="mt-2 text-sm font-semibold text-zinc-100">{latest?.order_number}</p>
+                  </div>
+                  <div className="rounded-[1.5rem] border border-white/10 bg-black/45 p-4">
+                    <p className="text-xs uppercase tracking-[0.24em] text-zinc-500">Payment</p>
+                    <p className="mt-2 text-sm font-semibold text-zinc-100">{mapPaymentMethod(latest?.payment_method)}</p>
+                  </div>
+                  <div className="rounded-[1.5rem] border border-white/10 bg-black/45 p-4">
+                    <p className="text-xs uppercase tracking-[0.24em] text-zinc-500">Total amount</p>
+                    <p className="mt-2 text-sm font-semibold text-zinc-100">{formatInr(latest?.order_total_inr || 0)}</p>
+                  </div>
+                  <div className="rounded-[1.5rem] border border-white/10 bg-black/45 p-4">
+                    <p className="text-xs uppercase tracking-[0.24em] text-zinc-500">Order date</p>
+                    <p className="mt-2 text-sm font-semibold text-zinc-100">{formatOrderDate(latest?.placed_at)}</p>
+                  </div>
+                </div>
+
+                <div className="mt-8 rounded-[1.5rem] border border-white/10 bg-black/45 p-6">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.24em] text-zinc-500">Delivery timeline</p>
+                      <h3 className="mt-2 text-xl font-semibold text-zinc-50">Premium delivery tracker</h3>
+                    </div>
+                    <span className="text-xs uppercase tracking-[0.24em] text-zinc-500">
+                      Updated status: {latest?.status || 'pending'}
+                    </span>
+                  </div>
+
+                  <div className="mt-6 space-y-4">
+                    {getOrderTimelineSteps(latest).map((step, index) => (
+                      <motion.div
+                        key={step.label}
+                        initial={{ opacity: 0, y: 12 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.25, delay: index * 0.05 }}
+                        className="flex items-start gap-4"
+                      >
+                        <div className={`mt-1 h-3.5 w-3.5 rounded-full ${step.status === 'complete' ? 'bg-emerald-400' : step.status === 'active' ? 'bg-sky-400' : 'bg-zinc-700 border border-white/10'}`} />
+                        <div className="min-w-0">
+                          <p className={`text-sm font-semibold ${step.status === 'pending' ? 'text-zinc-400' : 'text-zinc-100'}`}>
+                            {step.label}
+                          </p>
+                          <p className="text-xs text-zinc-500">
+                            {step.status === 'complete'
+                              ? 'Completed'
+                              : step.status === 'active'
+                              ? 'In progress'
+                              : 'Pending'}
+                          </p>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-[2rem] border border-white/10 bg-black/45 p-6">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-[0.24em] text-zinc-500">Previous orders</p>
+                    <h3 className="mt-2 text-2xl font-semibold text-zinc-50">Order history</h3>
+                  </div>
+                  <span className="text-xs uppercase tracking-[0.24em] text-zinc-500">{orders.length} entries</span>
+                </div>
+                <div className="mt-6 space-y-4">
+                  {previousOrders.length ? (
+                    previousOrders.map((order) => (
+                      <div key={order.id} className="rounded-[1.5rem] border border-white/10 bg-black/35 p-5">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                          <div>
+                            <p className="text-sm font-semibold text-zinc-100">{order.items?.[0]?.sneaker?.name || order.order_number}</p>
+                            <p className="text-xs uppercase tracking-[0.22em] text-zinc-500">{formatOrderDate(order.placed_at)}</p>
+                          </div>
+                          <span className="rounded-full bg-white/5 px-3 py-1 text-xs uppercase tracking-[0.24em] text-zinc-300">
+                            {order.status}
+                          </span>
+                        </div>
+                        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                          <div>
+                            <p className="text-xs uppercase tracking-[0.22em] text-zinc-500">Order #</p>
+                            <p className="mt-2 text-sm font-semibold text-zinc-100">{order.order_number}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs uppercase tracking-[0.22em] text-zinc-500">Payment</p>
+                            <p className="mt-2 text-sm font-semibold text-zinc-100">{mapPaymentMethod(order.payment_method)}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs uppercase tracking-[0.22em] text-zinc-500">Total</p>
+                            <p className="mt-2 text-sm font-semibold text-zinc-100">{formatInr(order.order_total_inr || 0)}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-sm text-zinc-500">No prior orders found yet. Your most recent purchase is displayed above.</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+          </>
+        )}
       </motion.div>
     </section>
   )
@@ -2202,7 +2452,13 @@ export default function App() {
   const [selectedSneaker, setSelectedSneaker] = useState(null)
   const [isCartOpen, setIsCartOpen] = useState(false)
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false)
-  const [page, setPage] = useState('login')
+  const getInitialPage = () => {
+    const hash = window.location.hash.replace('#', '').trim()
+    return ['login', 'register', 'dashboard', 'receipt', 'orders'].includes(hash)
+      ? hash
+      : 'login'
+  }
+  const [page, setPage] = useState(getInitialPage)
 
   const {
     isAuthenticated,
@@ -2216,6 +2472,9 @@ export default function App() {
 
   const authToken = tokens?.access
 
+  const [orders, setOrders] = useState([])
+  const [ordersLoading, setOrdersLoading] = useState(false)
+  const [ordersError, setOrdersError] = useState(null)
   const [orderReceipt, setOrderReceipt] = useState(null)
   const [cartItems, setCartItems] = useState([])
   const [apiSneakers, setApiSneakers] = useState([])
@@ -2263,12 +2522,70 @@ export default function App() {
     if (!isAuthenticated && target !== 'login' && target !== 'register') {
       target = 'login'
     }
+
     setPage(target)
+    if (target === 'home') {
+      window.location.hash = ''
+    } else {
+      window.location.hash = target
+    }
+
     setSelectedSneaker(null)
     setIsMenuOpen(false)
     setIsCheckoutOpen(false)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
+
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash.replace('#', '').trim()
+      const normalized = ['login', 'register', 'dashboard', 'receipt', 'orders'].includes(hash)
+        ? hash
+        : page
+      if (normalized && normalized !== page) {
+        setPage(normalized)
+      }
+    }
+
+    window.addEventListener('hashchange', handleHashChange)
+    return () => window.removeEventListener('hashchange', handleHashChange)
+  }, [page])
+
+  const loadOrders = async () => {
+    if (!authToken) return
+
+    setOrdersLoading(true)
+    setOrdersError(null)
+
+    const localOrders = loadLocalOrders(user)
+    if (localOrders.length) {
+      setOrders(localOrders)
+    }
+
+    try {
+      const response = await apiClient.get('/api/orders')
+      const ordersData = response?.data?.orders || []
+      const mergedOrders = mergeOrders(Array.isArray(ordersData) ? ordersData : [], localOrders)
+      setOrders(mergedOrders)
+      saveLocalOrders(user, mergedOrders)
+      setOrdersError(null)
+    } catch (err) {
+      console.error('Failed to load orders:', err)
+      setOrders(localOrders)
+      const remoteMessage = err?.response?.data?.error || err?.response?.data?.msg || err?.message
+      setOrdersError(localOrders.length ? `Unable to load server orders, showing saved orders. ${remoteMessage || ''}`.trim() : remoteMessage || 'Unable to load orders')
+    } finally {
+      setOrdersLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (page !== 'orders') return
+    if (authLoading) return
+    if (!isAuthenticated) return
+
+    loadOrders()
+  }, [page, isAuthenticated, authLoading, authToken])
 
   const handleNavClick = (sectionId) => {
     const isHome = sectionId === 'home'
@@ -2429,6 +2746,36 @@ export default function App() {
         throw new Error('Invalid order response')
       }
 
+      const receiptItems = data.order_items.map((item) => ({
+        name: item.sneaker.name,
+        brand: item.sneaker.brand,
+        size: item.size?.size_label || 'UK 9',
+        quantity: item.quantity,
+        price: formatInr(item.unit_price_inr),
+        total: item.total_price_inr,
+      }))
+
+      const localOrder = {
+        id: data.order.id,
+        order_number: data.order.order_number,
+        placed_at: data.order.placed_at,
+        status: data.order.status,
+        payment_method: data.order.payment_method,
+        payment_status: data.order.payment_status,
+        order_total_inr: data.order.order_total_inr,
+        shipping_fee_inr: data.order.shipping_fee_inr,
+        handling_fee_inr: data.order.handling_fee_inr,
+        tax_inr: data.order.tax_inr,
+        items: data.order_items.map((item) => ({
+          sneaker: { name: item.sneaker.name, brand: item.sneaker.brand },
+          size: { size_label: item.size?.size_label || 'UK 9' },
+          quantity: item.quantity,
+          unit_price_inr: item.unit_price_inr,
+          total_price_inr: item.total_price_inr,
+        })),
+      }
+
+      addLocalOrder(user, localOrder)
       setOrderReceipt({
         id: data.order.id,
         orderNumber: data.order.order_number,
@@ -2441,14 +2788,7 @@ export default function App() {
         shipping: data.order.shipping_fee_inr,
         handling: data.order.handling_fee_inr,
         total: data.order.order_total_inr,
-        items: data.order_items.map((item) => ({
-          name: item.sneaker.name,
-          brand: item.sneaker.brand,
-          size: item.size?.size_label || 'UK 9',
-          quantity: item.quantity,
-          price: formatInr(item.unit_price_inr),
-          total: item.total_price_inr,
-        })),
+        items: receiptItems,
       })
 
       setCartItems([])
@@ -2698,7 +3038,7 @@ export default function App() {
                 animate={{ opacity: 1, scale: 1 }}
                 className="flex items-center gap-3"
               >
-                <UserProfileMenu user={user} />
+                <UserProfileMenu user={user} onNavigate={navigatePage} />
               </motion.div>
             ) : (
               <>
@@ -2894,6 +3234,12 @@ export default function App() {
           onNavigate={navigatePage}
           onStartCheckout={openCheckout}
           onLogout={handleLogout}
+        />
+      ) : effectivePage === 'orders' ? (
+        <OrdersPage
+          orders={orders}
+          loading={ordersLoading}
+          error={ordersError}
         />
       ) : page === 'receipt' ? (
         <ReceiptPage

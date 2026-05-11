@@ -76,7 +76,7 @@ export const UserAvatar = ({ user, size = 'md' }) => {
  * User profile dropdown menu
  * Shows user info and quick actions
  */
-export const UserProfileMenu = ({ user }) => {
+export const UserProfileMenu = ({ user, onNavigate }) => {
   const { logout } = useAuth()
   const [isOpen, setIsOpen] = useState(false)
 
@@ -144,14 +144,20 @@ export const UserProfileMenu = ({ user }) => {
               <MenuItem
                 icon={<User size={16} />}
                 label="My Profile"
-                href="/profile"
-                onClick={() => setIsOpen(false)}
+                href="#dashboard"
+                onClick={() => {
+                  setIsOpen(false)
+                  onNavigate?.('dashboard')
+                }}
               />
               <MenuItem
                 icon={<Package size={16} />}
                 label="My Orders"
-                href="/orders"
-                onClick={() => setIsOpen(false)}
+                href="#orders"
+                onClick={() => {
+                  setIsOpen(false)
+                  onNavigate?.('orders')
+                }}
               />
               <MenuItem
                 icon={<Heart size={16} />}

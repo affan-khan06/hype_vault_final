@@ -14,6 +14,13 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 
 const AuthContext = createContext()
 
+const normalizeToken = (token) => {
+  if (!token || typeof token !== 'string') return null
+  const trimmed = token.trim()
+  if (!trimmed || trimmed === 'null' || trimmed === 'undefined') return null
+  return trimmed
+}
+
 // JWT decode helper (simple base64 decode - assumes no verification needed client-side)
 const decodeJWT = (token) => {
   try {
@@ -42,8 +49,8 @@ const isTokenExpired = (token) => {
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null)
   const [tokens, setTokens] = useState({
-    access: localStorage.getItem('access_token'),
-    refresh: localStorage.getItem('refresh_token'),
+    access: normalizeToken(localStorage.getItem('access_token')),
+    refresh: normalizeToken(localStorage.getItem('refresh_token')),
   })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -53,9 +60,22 @@ export const AuthProvider = ({ children }) => {
 
   // Persist tokens to localStorage
   const saveTokens = useCallback((accessToken, refreshToken) => {
-    localStorage.setItem('access_token', accessToken)
-    localStorage.setItem('refresh_token', refreshToken)
-    setTokens({ access: accessToken, refresh: refreshToken })
+    const normalizedAccess = normalizeToken(accessToken)
+    const normalizedRefresh = normalizeToken(refreshToken)
+
+    if (normalizedAccess) {
+      localStorage.setItem('access_token', normalizedAccess)
+    } else {
+      localStorage.removeItem('access_token')
+    }
+
+    if (normalizedRefresh) {
+      localStorage.setItem('refresh_token', normalizedRefresh)
+    } else {
+      localStorage.removeItem('refresh_token')
+    }
+
+    setTokens({ access: normalizedAccess, refresh: normalizedRefresh })
   }, [])
 
   // Clear tokens and user
@@ -69,11 +89,12 @@ export const AuthProvider = ({ children }) => {
 
   // Fetch current user profile from backend
   const fetchUserProfile = useCallback(async (accessToken) => {
-    if (!accessToken) return null
+    const normalizedAccess = normalizeToken(accessToken)
+    if (!normalizedAccess) return null
     
     try {
       const res = await fetch(`${API_URL}/api/auth/current-user`, {
-        headers: { Authorization: `Bearer ${accessToken}` },
+        headers: { Authorization: `Bearer ${normalizedAccess}` },
       })
 
       if (!res.ok) {
@@ -102,7 +123,8 @@ export const AuthProvider = ({ children }) => {
 
   // Refresh access token using refresh token
   const refreshAccessToken = useCallback(async () => {
-    if (isRefreshingToken || !tokens.refresh) return false
+    const refreshToken = normalizeToken(tokens.refresh)
+    if (isRefreshingToken || !refreshToken) return false
 
     setIsRefreshingToken(true)
     try {
@@ -110,7 +132,7 @@ export const AuthProvider = ({ children }) => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${tokens.refresh}`,
+          Authorization: `Bearer ${refreshToken}`,
         },
       })
 
@@ -140,8 +162,8 @@ export const AuthProvider = ({ children }) => {
     const initializeAuth = async () => {
       setLoading(true)
 
-      const storedAccessToken = localStorage.getItem('access_token')
-      const storedRefreshToken = localStorage.getItem('refresh_token')
+      const storedAccessToken = normalizeToken(localStorage.getItem('access_token'))
+      const storedRefreshToken = normalizeToken(localStorage.getItem('refresh_token'))
       const cachedProfile = localStorage.getItem('user_profile')
 
       if (!storedAccessToken || !storedRefreshToken) {

@@ -98,7 +98,7 @@ class Sneaker(db.Model):
     release_year = db.Column(db.Integer, nullable=False)
     rarity = db.Column(db.String(80), nullable=False)
     category = db.Column(db.Enum('running', 'basketball', 'lifestyle', 'luxury', 'skate', 'retro', 'high-fashion'), nullable=False, default='lifestyle')
-    condition = db.Column('shoe_condition', db.Enum('deadstock', 'brand_new', 'near_mint', 'used'), nullable=False, default='deadstock')
+    condition = db.Column(db.Enum('deadstock', 'brand_new', 'near_mint', 'used'), nullable=False, default='deadstock')
     msrp_inr = db.Column(db.Integer)
     current_price_inr = db.Column(db.Integer, nullable=False)
     market_value_inr = db.Column(db.Integer)
