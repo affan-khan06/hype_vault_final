@@ -98,7 +98,7 @@ export const AuthProvider = ({ children }) => {
       })
 
       if (!res.ok) {
-        if (res.status === 401 || res.status === 403) {
+        if (res.status === 401 || res.status === 403 || res.status === 422) {
           clearAuth()
         }
         return null
@@ -123,7 +123,7 @@ export const AuthProvider = ({ children }) => {
 
   // Refresh access token using refresh token
   const refreshAccessToken = useCallback(async () => {
-    const refreshToken = normalizeToken(tokens.refresh)
+    const refreshToken = normalizeToken(localStorage.getItem('refresh_token'))
     if (isRefreshingToken || !refreshToken) return false
 
     setIsRefreshingToken(true)
@@ -137,7 +137,7 @@ export const AuthProvider = ({ children }) => {
       })
 
       if (!res.ok) {
-        if (res.status === 401 || res.status === 403) {
+        if (res.status === 401 || res.status === 403 || res.status === 422) {
            clearAuth()
         }
         return false
@@ -155,7 +155,7 @@ export const AuthProvider = ({ children }) => {
     } finally {
       setIsRefreshingToken(false)
     }
-  }, [tokens.refresh, API_URL, saveTokens, clearAuth, isRefreshingToken])
+  }, [API_URL, saveTokens, clearAuth, isRefreshingToken])
 
   // Initialize auth on app load - recover session if tokens exist
   useEffect(() => {
@@ -196,7 +196,8 @@ export const AuthProvider = ({ children }) => {
     }
 
     initializeAuth()
-  }, [refreshAccessToken, fetchUserProfile])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Register user
   const register = useCallback(
@@ -266,10 +267,11 @@ export const AuthProvider = ({ children }) => {
   // Logout user
   const logout = useCallback(async () => {
     try {
-      if (tokens.access) {
+      const currentToken = normalizeToken(localStorage.getItem('access_token'))
+      if (currentToken) {
          await fetch(`${API_URL}/api/auth/logout`, {
            method: 'POST',
-           headers: { Authorization: `Bearer ${tokens.access}` }
+           headers: { Authorization: `Bearer ${currentToken}` }
          });
       }
     } catch(e) {
@@ -277,12 +279,13 @@ export const AuthProvider = ({ children }) => {
     }
     clearAuth()
     setError(null)
-  }, [clearAuth, tokens.access, API_URL])
+  }, [clearAuth, API_URL])
 
   // Update user profile
   const updateProfile = useCallback(
     async (updates) => {
-      if (!tokens.access) {
+      const currentToken = normalizeToken(localStorage.getItem('access_token'))
+      if (!currentToken) {
         setError('Not authenticated')
         return { success: false }
       }
@@ -293,7 +296,7 @@ export const AuthProvider = ({ children }) => {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${tokens.access}`,
+            Authorization: `Bearer ${currentToken}`,
           },
           body: JSON.stringify(updates),
         })
@@ -313,7 +316,7 @@ export const AuthProvider = ({ children }) => {
         return { success: false, error: err.message }
       }
     },
-    [tokens.access, API_URL]
+    [API_URL]
   )
 
   const value = {

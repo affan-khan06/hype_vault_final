@@ -28,7 +28,7 @@ def create_user_session(user):
     # Create new session
     session_token = generate_token()
     refresh_token = generate_token()
-    access_token = create_access_token(identity=user.id)
+    access_token = create_access_token(identity=str(user.id))
 
     expires_at = datetime.utcnow() + timedelta(days=7)  # 7 days
     refresh_expires_at = datetime.utcnow() + timedelta(days=90)  # 90 days
@@ -141,7 +141,7 @@ def refresh():
         return jsonify({'error': 'Session expired'}), 401
 
     # Update session with new tokens
-    user_session.access_token = create_access_token(identity=user_session.user_id)
+    user_session.access_token = create_access_token(identity=str(user_session.user_id))
     user_session.expires_at = datetime.utcnow() + timedelta(days=7)
     user_session.update_last_used()
     db.session.commit()

@@ -31,7 +31,19 @@ def create_app():
 
     # Initialize extensions
     CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=True)
-    JWTManager(app)
+    jwt = JWTManager(app)
+    
+    @jwt.invalid_token_loader
+    def invalid_token_callback(error_string):
+        return {'error': 'Invalid token', 'message': error_string}, 401
+        
+    @jwt.unauthorized_loader
+    def missing_token_callback(error_string):
+        return {'error': 'Missing token', 'message': error_string}, 401
+        
+    @jwt.expired_token_loader
+    def expired_token_callback(jwt_header, jwt_payload):
+        return {'error': 'Token expired', 'message': 'The token has expired'}, 401
     db.init_app(app)
 
     # Register blueprints
