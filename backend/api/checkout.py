@@ -185,10 +185,29 @@ def checkout():
 
     db.session.commit()
 
+    # Build enriched order_items for the frontend (needs sneaker name/brand and size_label)
+    enriched_items = []
+    for item in order.items:
+        from models import Sneaker as SneakerModel, SneakerSize as SneakerSizeModel
+        sneaker = db.session.get(SneakerModel, item.sneaker_id)
+        size = db.session.get(SneakerSizeModel, item.size_id)
+        enriched_items.append({
+            **item.to_dict(),
+            'sneaker': {
+                'id': sneaker.id,
+                'name': sneaker.name,
+                'brand': sneaker.brand,
+            } if sneaker else {'id': item.sneaker_id, 'name': 'Unknown', 'brand': 'Unknown'},
+            'size': {
+                'id': size.id,
+                'size_label': size.size_label,
+            } if size else {'id': item.size_id, 'size_label': 'UK 9'},
+        })
+
     return jsonify({
         'message': 'Order placed successfully',
         'order': order.to_dict(),
-        'order_items': [item.to_dict() for item in order.items]
+        'order_items': enriched_items
     }), 201
 
 @checkout_bp.route('/payment/webhook', methods=['POST'])
