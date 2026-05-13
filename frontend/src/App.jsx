@@ -1585,6 +1585,28 @@ function OrdersPage({ orders, loading, error }) {
 }
 
 function ReceiptPage({ order, onBack, onContinueShopping }) {
+  const [isDownloading, setIsDownloading] = useState(false)
+
+  const handleDownloadPdf = async () => {
+    const element = document.getElementById('hv-receipt-pdf-content')
+    if (!element) return
+    setIsDownloading(true)
+    try {
+      const opt = {
+        margin: 0.4,
+        filename: `HYPEVAULT_${order.orderNumber || 'receipt'}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true },
+        jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' },
+      }
+      await html2pdf().set(opt).from(element).save()
+    } catch (err) {
+      console.error('PDF generation failed:', err)
+    } finally {
+      setIsDownloading(false)
+    }
+  }
+
   if (!order) {
     return (
       <section className="relative px-5 pb-24 pt-32 sm:px-6 sm:pt-36 lg:px-10">
@@ -1613,30 +1635,220 @@ function ReceiptPage({ order, onBack, onContinueShopping }) {
     )
   }
 
+  const items = order.items || []
+
   return (
-    <section id="receipt" className="relative min-h-screen px-5 pt-32 sm:px-6 sm:pt-40 lg:px-10 flex items-center justify-center">
+    <section id="receipt" className="relative px-5 pb-24 pt-32 sm:px-6 sm:pt-36 lg:px-10">
       <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="max-w-xl text-center"
+        initial={{ opacity: 0, y: 28 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.72, ease: [0.22, 1, 0.36, 1] }}
+        className="mx-auto max-w-3xl"
       >
-        <div className="mb-8 inline-flex h-20 w-20 items-center justify-center rounded-full bg-green-500/10 text-green-400">
-          <BadgeCheck size={40} />
+        {/* Confirmation header */}
+        <div className="mb-8 text-center">
+          <div className="mb-6 inline-flex h-20 w-20 items-center justify-center rounded-full bg-green-500/10 text-green-400">
+            <BadgeCheck size={40} />
+          </div>
+          <h1 className="text-4xl font-bold uppercase tracking-tighter text-zinc-50 sm:text-5xl">
+            Order Confirmed.
+          </h1>
+          <p className="mt-4 text-zinc-400">
+            Order <span className="font-semibold text-zinc-200">#{order.orderNumber}</span> is being processed for gallery-grade authentication.
+          </p>
         </div>
-        <h1 className="text-4xl font-bold uppercase tracking-tighter text-zinc-50 sm:text-6xl">
-          Thank You.
-        </h1>
-        <p className="mt-6 text-zinc-400">
-          Your acquisition is confirmed. Order #{order.orderNumber} is being processed
-          for gallery-grade authentication.
-        </p>
-        <button
-          onClick={onContinueShopping}
-          className="mt-10 rounded-full bg-zinc-100 px-10 py-4 text-xs font-bold uppercase tracking-widest text-black transition-all hover:bg-white"
-        >
-          Return to Vault
-        </button>
+
+        {/* On-screen receipt card */}
+        <div className="rounded-[2rem] border border-white/10 bg-black/45 p-6 shadow-[0_30px_120px_rgba(0,0,0,0.48)] backdrop-blur-2xl sm:p-8">
+          {/* Order meta */}
+          <div className="mb-6 grid grid-cols-2 gap-4 rounded-2xl border border-white/10 bg-white/[0.03] p-5 sm:grid-cols-4">
+            <div>
+              <p className="text-[0.6rem] font-semibold uppercase tracking-[0.24em] text-zinc-500">Order</p>
+              <p className="mt-1 text-sm font-bold text-zinc-100">{order.orderNumber}</p>
+            </div>
+            <div>
+              <p className="text-[0.6rem] font-semibold uppercase tracking-[0.24em] text-zinc-500">Date</p>
+              <p className="mt-1 text-sm font-bold text-zinc-100">{order.date}</p>
+            </div>
+            <div>
+              <p className="text-[0.6rem] font-semibold uppercase tracking-[0.24em] text-zinc-500">Payment</p>
+              <p className="mt-1 text-sm font-bold text-zinc-100">{mapPaymentMethod(order.paymentMethod)}</p>
+            </div>
+            <div>
+              <p className="text-[0.6rem] font-semibold uppercase tracking-[0.24em] text-zinc-500">Status</p>
+              <p className="mt-1 text-sm font-bold text-green-400 capitalize">{order.status || 'Confirmed'}</p>
+            </div>
+          </div>
+
+          {/* Items list */}
+          <div className="space-y-3">
+            <p className="text-[0.65rem] font-bold uppercase tracking-[0.28em] text-zinc-500">Items</p>
+            {items.map((item, i) => (
+              <div key={i} className="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.03] px-5 py-4">
+                <div>
+                  <p className="text-sm font-semibold text-zinc-100">{item.name}</p>
+                  <p className="mt-0.5 text-xs text-zinc-500">{item.brand} · Size {item.size} · Qty {item.quantity}</p>
+                </div>
+                <p className="text-sm font-bold text-zinc-100">{typeof item.total === 'number' ? formatInr(item.total) : item.price}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Totals */}
+          <div className="mt-6 space-y-2 border-t border-white/10 pt-5">
+            <div className="flex justify-between text-sm text-zinc-400">
+              <span>Subtotal</span>
+              <span>{formatInr(order.subtotal || 0)}</span>
+            </div>
+            {(order.shipping != null && order.shipping > 0) && (
+              <div className="flex justify-between text-sm text-zinc-400">
+                <span>Shipping</span>
+                <span>{formatInr(order.shipping)}</span>
+              </div>
+            )}
+            {(order.handling != null && order.handling > 0) && (
+              <div className="flex justify-between text-sm text-zinc-400">
+                <span>Handling</span>
+                <span>{formatInr(order.handling)}</span>
+              </div>
+            )}
+            {(order.tax != null && order.tax > 0) && (
+              <div className="flex justify-between text-sm text-zinc-400">
+                <span>GST (18%)</span>
+                <span>{formatInr(order.tax)}</span>
+              </div>
+            )}
+            <div className="flex justify-between border-t border-white/10 pt-3 text-base font-bold text-zinc-50">
+              <span>Total</span>
+              <span>{formatInr(order.total || 0)}</span>
+            </div>
+          </div>
+
+          {/* Action buttons */}
+          <div className="mt-8 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
+            <button
+              onClick={handleDownloadPdf}
+              disabled={isDownloading}
+              className="inline-flex items-center gap-3 rounded-full bg-zinc-100 px-8 py-4 text-xs font-bold uppercase tracking-[0.22em] text-black transition-all hover:bg-white disabled:opacity-50"
+            >
+              <ShoppingBag size={16} />
+              {isDownloading ? 'Generating...' : 'Download Receipt'}
+            </button>
+            <button
+              onClick={onContinueShopping}
+              className="inline-flex items-center gap-3 rounded-full border border-white/15 bg-white/[0.05] px-8 py-4 text-xs font-bold uppercase tracking-[0.22em] text-zinc-300 backdrop-blur-xl transition-all hover:border-white/30 hover:text-white"
+            >
+              Return to Vault
+            </button>
+          </div>
+        </div>
       </motion.div>
+
+      {/* Hidden PDF-ready receipt (white background, clean layout for print) */}
+      <div style={{ position: 'absolute', left: '-9999px', top: 0 }}>
+        <div
+          id="hv-receipt-pdf-content"
+          style={{
+            width: '650px',
+            padding: '40px',
+            fontFamily: 'Helvetica, Arial, sans-serif',
+            color: '#111',
+            background: '#fff',
+          }}
+        >
+          {/* PDF Header */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '2px solid #111', paddingBottom: '16px', marginBottom: '24px' }}>
+            <div>
+              <h1 style={{ fontSize: '28px', fontWeight: '800', margin: 0, letterSpacing: '-1px' }}>HYPE VAULT</h1>
+              <p style={{ fontSize: '11px', color: '#888', margin: '4px 0 0', letterSpacing: '2px', textTransform: 'uppercase' }}>Premium Sneaker Marketplace</p>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <p style={{ fontSize: '14px', fontWeight: '700', margin: 0 }}>INVOICE</p>
+              <p style={{ fontSize: '12px', color: '#555', margin: '4px 0 0' }}>#{order.orderNumber}</p>
+              <p style={{ fontSize: '11px', color: '#888', margin: '2px 0 0' }}>{order.date}</p>
+            </div>
+          </div>
+
+          {/* PDF Order Info */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '28px' }}>
+            <div>
+              <p style={{ fontSize: '10px', fontWeight: '700', color: '#999', textTransform: 'uppercase', letterSpacing: '1.5px', margin: '0 0 6px' }}>Payment Method</p>
+              <p style={{ fontSize: '13px', fontWeight: '600', margin: 0 }}>{mapPaymentMethod(order.paymentMethod)}</p>
+            </div>
+            <div>
+              <p style={{ fontSize: '10px', fontWeight: '700', color: '#999', textTransform: 'uppercase', letterSpacing: '1.5px', margin: '0 0 6px' }}>Delivery</p>
+              <p style={{ fontSize: '13px', fontWeight: '600', margin: 0 }}>{order.delivery || '2-4 business days'}</p>
+            </div>
+            <div>
+              <p style={{ fontSize: '10px', fontWeight: '700', color: '#999', textTransform: 'uppercase', letterSpacing: '1.5px', margin: '0 0 6px' }}>Status</p>
+              <p style={{ fontSize: '13px', fontWeight: '600', margin: 0, textTransform: 'capitalize' }}>{order.status || 'Confirmed'}</p>
+            </div>
+          </div>
+
+          {/* PDF Items Table */}
+          <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '24px' }}>
+            <thead>
+              <tr style={{ borderBottom: '2px solid #ddd' }}>
+                <th style={{ textAlign: 'left', padding: '8px 4px', fontSize: '10px', fontWeight: '700', color: '#999', textTransform: 'uppercase', letterSpacing: '1px' }}>Item</th>
+                <th style={{ textAlign: 'center', padding: '8px 4px', fontSize: '10px', fontWeight: '700', color: '#999', textTransform: 'uppercase', letterSpacing: '1px' }}>Size</th>
+                <th style={{ textAlign: 'center', padding: '8px 4px', fontSize: '10px', fontWeight: '700', color: '#999', textTransform: 'uppercase', letterSpacing: '1px' }}>Qty</th>
+                <th style={{ textAlign: 'right', padding: '8px 4px', fontSize: '10px', fontWeight: '700', color: '#999', textTransform: 'uppercase', letterSpacing: '1px' }}>Price</th>
+                <th style={{ textAlign: 'right', padding: '8px 4px', fontSize: '10px', fontWeight: '700', color: '#999', textTransform: 'uppercase', letterSpacing: '1px' }}>Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((item, i) => (
+                <tr key={i} style={{ borderBottom: '1px solid #eee' }}>
+                  <td style={{ padding: '10px 4px' }}>
+                    <p style={{ fontSize: '13px', fontWeight: '600', margin: 0 }}>{item.name}</p>
+                    <p style={{ fontSize: '11px', color: '#888', margin: '2px 0 0' }}>{item.brand}</p>
+                  </td>
+                  <td style={{ textAlign: 'center', padding: '10px 4px', fontSize: '12px' }}>{item.size}</td>
+                  <td style={{ textAlign: 'center', padding: '10px 4px', fontSize: '12px' }}>{item.quantity}</td>
+                  <td style={{ textAlign: 'right', padding: '10px 4px', fontSize: '12px' }}>{item.price}</td>
+                  <td style={{ textAlign: 'right', padding: '10px 4px', fontSize: '13px', fontWeight: '600' }}>{typeof item.total === 'number' ? formatInr(item.total) : item.price}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          {/* PDF Totals */}
+          <div style={{ marginLeft: 'auto', width: '250px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: '12px', color: '#555' }}>
+              <span>Subtotal</span>
+              <span>{formatInr(order.subtotal || 0)}</span>
+            </div>
+            {(order.shipping != null && order.shipping > 0) && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: '12px', color: '#555' }}>
+                <span>Shipping</span>
+                <span>{formatInr(order.shipping)}</span>
+              </div>
+            )}
+            {(order.handling != null && order.handling > 0) && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: '12px', color: '#555' }}>
+                <span>Handling</span>
+                <span>{formatInr(order.handling)}</span>
+              </div>
+            )}
+            {(order.tax != null && order.tax > 0) && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: '12px', color: '#555' }}>
+                <span>GST (18%)</span>
+                <span>{formatInr(order.tax)}</span>
+              </div>
+            )}
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0 0', borderTop: '2px solid #111', marginTop: '8px', fontSize: '16px', fontWeight: '800' }}>
+              <span>Total</span>
+              <span>{formatInr(order.total || 0)}</span>
+            </div>
+          </div>
+
+          {/* PDF Footer */}
+          <div style={{ marginTop: '40px', paddingTop: '16px', borderTop: '1px solid #ddd', textAlign: 'center' }}>
+            <p style={{ fontSize: '10px', color: '#aaa', margin: 0 }}>Thank you for shopping with HYPE VAULT · Premium Authenticated Sneakers</p>
+            <p style={{ fontSize: '10px', color: '#ccc', margin: '4px 0 0' }}>This is a computer-generated invoice and does not require a signature.</p>
+          </div>
+        </div>
+      </div>
     </section>
   )
 }
@@ -2787,6 +2999,7 @@ export default function App() {
         subtotal: data.order.order_total_inr - (data.order.shipping_fee_inr || 0) - (data.order.handling_fee_inr || 0) - (data.order.tax_inr || 0),
         shipping: data.order.shipping_fee_inr,
         handling: data.order.handling_fee_inr,
+        tax: data.order.tax_inr,
         total: data.order.order_total_inr,
         items: receiptItems,
       })
